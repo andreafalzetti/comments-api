@@ -18,8 +18,8 @@ func loadEnvOrDefault(key, defaultValue string) string {
 	return value
 }
 
-// New creates a new service config
-func NewFromEnv() (*Config, error) {
+// FromEnv creates a new service config reading values from the env vars and setting default values if missing
+func FromEnv() (*Config, error) {
 	host := loadEnvOrDefault("COMMENTS_API_HOST", "127.0.0.1")
 	if host == "" {
 		return nil, fmt.Errorf("host is missing")

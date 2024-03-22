@@ -9,9 +9,9 @@ import (
 
 // Main function
 func main() {
-	cfg, err := config.NewFromEnv()
+	cfg, err := config.FromEnv()
 	if err != nil {
-		fmt.Printf("error: %w", err)
+		fmt.Printf("error: %s", err)
 		return
 	}
 	fmt.Printf("Starting server on port %s...", cfg.Port)

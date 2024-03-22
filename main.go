@@ -9,8 +9,12 @@ import (
 
 // Main function
 func main() {
-	cfg, err := config.New()
-	fmt.Println("Starting server...")
-	s := server.New(&server.Config{Host: apiConfig.Host, Port: apiConfig.Host})
+	cfg, err := config.NewFromEnv()
+	if err != nil {
+		fmt.Printf("error: %w", err)
+		return
+	}
+	fmt.Printf("Starting server on port %s...", cfg.Port)
+	s := server.New(&server.Config{Host: cfg.Host, Port: cfg.Host})
 	s.Run()
 }

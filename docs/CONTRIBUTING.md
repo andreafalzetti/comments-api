@@ -9,3 +9,10 @@ Use the following commands:
 - `make build`: build the binary
 - `make run`: builds and executes the binary
 - `make dev`: builds and watches the code for changes
+
+## Configuration
+
+The service uses the following environment variables as config:
+
+- `COMMENTS_API_HOST`
+- `COMMENTS_API_PORT`

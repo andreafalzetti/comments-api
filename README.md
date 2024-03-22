@@ -4,7 +4,8 @@
 
 - [Contributing](./docs/CONTRIBUTING.md)
 
-## Description
+
+## Description
 
 Demo project for a Comments API service.
 

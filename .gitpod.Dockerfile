@@ -1,4 +1,4 @@
-FROM gitpod/workspace-full:2024-03-20-07-19-19
+FROM gitpod/workspace-go:2024-03-20-07-19-19
 
 # install deps (i.e. ngrok, air)
 RUN curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && \

@@ -3,7 +3,6 @@ image:
 
 tasks:
   - name: Start
-    init: sh .gitpod/prebuild.sh
     command: |
-      sh .gitpod/prebuild.sh
+      ngrok 
       make start-dev

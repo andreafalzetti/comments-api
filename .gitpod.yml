@@ -1,0 +1,9 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - name: Start
+    init: sh .gitpod/prebuild.sh
+    command: |
+      sh .gitpod/prebuild.sh
+      make start-dev

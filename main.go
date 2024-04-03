@@ -14,7 +14,7 @@ func main() {
 		fmt.Printf("error: %s", err)
 		return
 	}
-	fmt.Printf("Starting server on port %s...", cfg.Port)
-	s := server.New(&server.Config{Host: cfg.Host, Port: cfg.Host})
+	fmt.Printf("Starting server on port %s...\n", cfg.Port)
+	s := server.New(&server.Config{Host: cfg.Host, Port: cfg.Port})
 	s.Run()
 }

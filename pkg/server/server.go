@@ -50,12 +50,25 @@ func (server *Server) Run() {
 	}
 }
 
+type message struct {
+	requestId string // 7 chars (a-z), set by the client
+	data      string
+	clientId  string
+}
+
+func (message string) unmarshall() {
+	// TODO: implement
+}
+
 func (client *Client) handleRequest() {
 	reader := bufio.NewReader(client.conn)
+	defer client.conn.Close()
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			client.conn.Close()
+			if err.Error() != "EOF" {
+				fmt.Printf("error: %v", err)
+			}
 			return
 		}
 		fmt.Printf("Message incoming: %s", string(message))

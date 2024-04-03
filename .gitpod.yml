@@ -9,4 +9,6 @@ tasks:
     command: |
       eval "$(gp env -e | grep NGROK_AUTH_TOKEN)"
       ngrok config add-authtoken $NGROK_AUTH_TOKEN
+      NGROK_ADMIN_URL=$(gp url 4040 | sed 's|https://||')
+      echo "web_allow_hosts: [$NGROK_ADMIN_URL]" >> ~/.config/ngrok/ngrok.yml
       ngrok tcp 14000

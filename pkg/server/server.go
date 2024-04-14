@@ -3,29 +3,36 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"github.com/andreafalzetti/comments-api/pkg/comments"
+	"github.com/andreafalzetti/comments-api/pkg/controller"
 	"log"
 	"net"
+	"strings"
 )
 
 type Server struct {
-	host string
-	port string
+	host           string
+	port           string
+	requestHandler *controller.Controller
 }
 
 type Client struct {
-	conn net.Conn
+	conn           net.Conn
+	requestHandler *controller.Controller
 }
 
 type Config struct {
-	Host string
-	Port string
+	Host           string
+	Port           string
+	RequestHandler *controller.Controller
 }
 
 // New initializes a new instance of the Server
 func New(config *Config) *Server {
 	return &Server{
-		host: config.Host,
-		port: config.Port,
+		host:           config.Host,
+		port:           config.Port,
+		requestHandler: config.RequestHandler,
 	}
 }
 
@@ -44,20 +51,25 @@ func (server *Server) Run() {
 		}
 
 		client := &Client{
-			conn: conn,
+			conn:           conn,
+			requestHandler: server.requestHandler,
 		}
 		go client.handleRequest()
 	}
 }
-
-type message struct {
-	requestId string // 7 chars (a-z), set by the client
-	data      string
-	clientId  string
-}
-
-func (message string) unmarshall() {
-	// TODO: implement
+func unmarshall(raw string) *comments.Request {
+	// the message is divided into parts separated by pipe |
+	// first 7 chars are the request id
+	// the following segment is the data
+	// the last is the client id (optional)
+	r := &comments.Request{}
+	parts := strings.Split(raw, "|")
+	r.ID = parts[0]
+	r.Data = parts[1]
+	if len(parts) == 3 {
+		r.ClientID = parts[2]
+	}
+	return r
 }
 
 func (client *Client) handleRequest() {
@@ -71,7 +83,9 @@ func (client *Client) handleRequest() {
 			}
 			return
 		}
-		fmt.Printf("Message incoming: %s", string(message))
-		client.conn.Write([]byte(message))
+		m := unmarshall(message)
+		fmt.Printf("Message incoming: %s", m)
+		output := client.requestHandler.HandleMessage(m)
+		client.conn.Write([]byte(output))
 	}
 }

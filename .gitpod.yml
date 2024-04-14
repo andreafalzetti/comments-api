@@ -3,7 +3,7 @@ image:
 
 tasks:
   - name: watch
-    command: |      
+    command: |
       make dev
   - name: ngrok
     command: |

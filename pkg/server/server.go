@@ -50,6 +50,7 @@ func (server *Server) Run() {
 			log.Fatal(err)
 		}
 
+		// TODO: handle multiple clients in db
 		client := &Client{
 			conn:           conn,
 			requestHandler: server.requestHandler,
@@ -78,7 +79,6 @@ func unmarshall(raw string) *comments.Request {
 
 func (client *Client) handleRequest() {
 	reader := bufio.NewReader(client.conn)
-	defer client.conn.Close()
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
@@ -88,13 +88,12 @@ func (client *Client) handleRequest() {
 			return
 		}
 		m := unmarshall(message)
-		fmt.Printf("<-- incoming request: '%s' - '%s' - '%s'\n", m.ID, m.Data, m.ClientID)
+		fmt.Printf("<-- incoming request: '%s', '%s', '%s'\n", m.ID, m.Data, m.ClientID)
 		output := client.requestHandler.HandleMessage(m)
 
-		write, err := client.conn.Write([]byte(output))
-		if err != nil {
-			fmt.Printf("error: %v", err)
-		}
-		fmt.Printf("--> response: '%s' - %d\n", output, write)
+		client.conn.Write([]byte(output))
+		//client.conn.Close()
+
+		fmt.Printf("--> response: '%s'\n", strings.TrimSuffix(output, "\n"))
 	}
 }

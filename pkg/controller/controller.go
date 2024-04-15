@@ -22,15 +22,37 @@ func (c *Controller) HandleMessage(req *comments.Request) string {
 	if req.ID != "" {
 		res.ID = req.ID
 	}
+
+	// auth
+	if req.Data == comments.ActionSignIn {
+		c.db.AuthenticateClient(req.ClientID)
+		return fmt.Sprintf("%s\n", req.ID)
+	}
+
+	// whoami
+	if req.Data == comments.ActionWhoami {
+		isAuth, clientId := c.db.IsAuthenticated(req.ClientID)
+		if isAuth {
+			return fmt.Sprintf("%s|%s\n", req.ID, clientId)
+		} else {
+			fmt.Println("NOT AUTHENTICATED")
+		}
+	}
+
+	// signout
+	if req.Data == comments.ActionSignOut {
+		c.db.SignOut((req.ClientID))
+		return fmt.Sprintf("%s\n", res.ID)
+	}
+
 	if req.ClientID != "" {
 		currentState := c.db.GetConnection(req.ClientID)
 		fmt.Println("state - ", currentState)
 	}
 
 	if res.Data != "" {
-		//return strings.Join(res.ID, res.Data, "|")
-		return fmt.Sprintf("%s|%s", res.ID, res.Data)
+		return fmt.Sprintf("%s|%s\n", res.ID, res.Data)
 	} else {
-		return res.ID
+		return fmt.Sprintf("%s\n", res.ID)
 	}
 }

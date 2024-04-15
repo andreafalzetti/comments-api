@@ -28,5 +28,6 @@ func main() {
 
 	// start the service
 	s.Run()
+
 	fmt.Printf("Starting server on port %s...\n", appCfg.Port)
 }

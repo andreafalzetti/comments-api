@@ -7,5 +7,6 @@ type Request struct {
 }
 
 type Response struct {
-	Output string
+	ID   string
+	Data string
 }

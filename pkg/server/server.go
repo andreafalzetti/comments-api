@@ -63,11 +63,15 @@ func unmarshall(raw string) *comments.Request {
 	// the following segment is the data
 	// the last is the client id (optional)
 	r := &comments.Request{}
+	raw = strings.TrimSuffix(raw, "\n")
 	parts := strings.Split(raw, "|")
+
 	r.ID = parts[0]
-	r.Data = parts[1]
 	if len(parts) == 3 {
+		r.Data = parts[1]
 		r.ClientID = parts[2]
+	} else if len(parts) == 2 {
+		r.Data = parts[1]
 	}
 	return r
 }
@@ -84,8 +88,13 @@ func (client *Client) handleRequest() {
 			return
 		}
 		m := unmarshall(message)
-		fmt.Printf("Message incoming: %s", m)
+		fmt.Printf("<-- incoming request: '%s' - '%s' - '%s'\n", m.ID, m.Data, m.ClientID)
 		output := client.requestHandler.HandleMessage(m)
-		client.conn.Write([]byte(output))
+
+		write, err := client.conn.Write([]byte(output))
+		if err != nil {
+			fmt.Printf("error: %v", err)
+		}
+		fmt.Printf("--> response: '%s' - %d\n", output, write)
 	}
 }

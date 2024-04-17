@@ -70,8 +70,44 @@ func (conn *Connection) HandleMessage(req *comments.Request) string {
 		return fmt.Sprintf("%s\n", res.ID)
 	}
 
+	// create discussion
+	if req.Data == comments.ActionCreateDiscussion {
+		fmt.Printf("New discussion with ref: %s, saying: %s\n", req.Reference, req.Comment)
+		d := comments.NewDiscussion(req.Reference, conn.clientId, req.Comment)
+		conn.db.AddDiscussion(d)
+		return fmt.Sprintf("%s\n", d.GetId())
+	}
+
+	// create reply
+	if req.Data == comments.ActionCreateReply {
+		fmt.Printf("New reply to discussion with ref: %s, saying: %s\n", req.Reference, req.Comment)
+		d := conn.db.GetDiscussionById(req.Reference)
+		if d == nil {
+			fmt.Printf("x - error: discussion with ref %s not found\n", req.Reference)
+			return ""
+		}
+		d.AddReply(conn.clientId, req.Comment)
+		return fmt.Sprintf("%s\n", req.ID)
+	}
+
+	// get discussion
+	if req.Data == comments.ActionGetDiscussion {
+		fmt.Printf("Get discussion with ref: %s\n", req.Reference)
+		d := conn.db.GetDiscussionById(req.Reference)
+		if d == nil {
+			fmt.Printf("x - error: discussion with ref %s not found\n", req.Reference)
+			return ""
+		}
+		return fmt.Sprintf("%s|%s\n", req.ID, d.GetId())
+	}
+
+	// list discussions
+	if req.Data == comments.ActionListDiscussions {
+
+	}
+
 	if req.ClientID != "" {
-		currentState := conn.db.GetRecordById(req.ClientID)
+		currentState := conn.db.GetClientById(req.ClientID)
 		fmt.Println("db - ", currentState)
 	}
 
@@ -84,7 +120,7 @@ func (conn *Connection) HandleMessage(req *comments.Request) string {
 
 // WhoAmI handles the WHOAMI requests by returning the clientId of the authenticated client
 func (conn *Connection) WhoAmI() string {
-	r := conn.db.GetRecordById(conn.clientId)
+	r := conn.db.GetClientById(conn.clientId)
 	if r != nil {
 		if r.IsAuthenticated {
 			return r.ClientId
@@ -95,7 +131,7 @@ func (conn *Connection) WhoAmI() string {
 
 // SignOut handles the SIGN_OUT requests
 func (conn *Connection) SignOut() {
-	r := conn.db.GetRecordById(conn.clientId)
+	r := conn.db.GetClientById(conn.clientId)
 	if r != nil {
 		r.IsAuthenticated = false
 	}

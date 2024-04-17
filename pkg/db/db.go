@@ -1,6 +1,8 @@
 package db
 
-import "fmt"
+import (
+	"github.com/andreafalzetti/comments-api/pkg/comments"
+)
 
 type Record struct {
 	ClientId        string
@@ -8,43 +10,47 @@ type Record struct {
 }
 
 type State struct {
-	keys map[string]*Record
+	clients     map[string]*Record
+	discussions []*comments.Discussion
 }
 
 // NewInMemoryDB creates a new in-memory key-value database used for development and testing
 func NewInMemoryDB() *State {
 	return &State{
-		keys: make(map[string]*Record),
+		clients: make(map[string]*Record),
 	}
 }
 
 // AuthenticateClient authenticates a client
 func (s *State) AuthenticateClient(clientId string) {
-	fmt.Println("AuthenticateClient: ", clientId)
-	r := s.keys[clientId]
+	r := s.clients[clientId]
 	if r == nil {
 		r = &Record{
 			ClientId:        clientId,
 			IsAuthenticated: false,
 		}
-		s.keys[clientId] = r
+		s.clients[clientId] = r
 	}
-	fmt.Println("Record: ", r)
 	r.IsAuthenticated = true
 }
 
-func (s *State) GetRecordById(clientId string) *Record {
-	return s.keys[clientId]
+func (s *State) GetClientById(clientId string) *Record {
+	return s.clients[clientId]
 }
 
-func (s *State) IsAuthenticated(clientId string) (bool, string) {
-	fmt.Println("Client IsAuthenticated: ", clientId)
-	r := s.keys[clientId]
-	return r.IsAuthenticated, r.ClientId
+func (s *State) GetDiscussionById(discussionId string) *comments.Discussion {
+	for _, d := range s.discussions {
+		if d.GetId() == discussionId {
+			return d
+		}
+	}
+	return nil
 }
 
-func (s *State) SignOut(clientId string) {
-	fmt.Println("Client SignOut: ", clientId)
-	r := s.keys[clientId]
-	r.IsAuthenticated = false
+func (s *State) AddDiscussion(discussion *comments.Discussion) {
+	s.discussions = append(s.discussions, discussion)
+}
+
+func (s *State) ListDiscussions() {
+
 }

@@ -20,9 +20,9 @@ func main() {
 
 	// create a new TCP server instance
 	serverCfg := &server.Config{
-		Host:           appCfg.Host,
-		Port:           appCfg.Port,
-		RequestHandler: controller.NewController(inMemoryDB),
+		Host:       appCfg.Host,
+		Port:       appCfg.Port,
+		Controller: controller.NewController(inMemoryDB),
 	}
 	s := server.New(serverCfg)
 

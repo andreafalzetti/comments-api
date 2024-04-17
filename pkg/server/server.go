@@ -1,38 +1,31 @@
 package server
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/andreafalzetti/comments-api/pkg/comments"
 	"github.com/andreafalzetti/comments-api/pkg/controller"
-	"log"
 	"net"
-	"strings"
 )
 
+// Server represents the server
 type Server struct {
-	host           string
-	port           string
-	requestHandler *controller.Controller
+	host       string
+	port       string
+	controller *controller.Controller
 }
 
-type Client struct {
-	conn           net.Conn
-	requestHandler *controller.Controller
-}
-
+// Config holds the configuration for the Server
 type Config struct {
-	Host           string
-	Port           string
-	RequestHandler *controller.Controller
+	Host       string
+	Port       string
+	Controller *controller.Controller
 }
 
 // New initializes a new instance of the Server
 func New(config *Config) *Server {
 	return &Server{
-		host:           config.Host,
-		port:           config.Port,
-		requestHandler: config.RequestHandler,
+		host:       config.Host,
+		port:       config.Port,
+		controller: config.Controller,
 	}
 }
 
@@ -40,60 +33,26 @@ func New(config *Config) *Server {
 func (server *Server) Run() {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", server.host, server.port))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("error listening for new connections: %v\n", err)
+		return
 	}
-	defer listener.Close()
+	defer func(listener net.Listener) {
+		err := listener.Close()
+		if err != nil {
+			fmt.Printf("error closing connection: %v\n", err)
+			return
+		}
+		fmt.Printf("connection closed successfully\n")
+	}(listener)
 
 	for {
 		conn, err := listener.Accept()
+		fmt.Printf("+++ new connection\n")
+
 		if err != nil {
-			log.Fatal(err)
+			fmt.Printf("error accepting new connection: %v\n", err)
 		}
 
-		// TODO: handle multiple clients in db
-		client := &Client{
-			conn:           conn,
-			requestHandler: server.requestHandler,
-		}
-		go client.handleRequest()
-	}
-}
-func unmarshall(raw string) *comments.Request {
-	// the message is divided into parts separated by pipe |
-	// first 7 chars are the request id
-	// the following segment is the data
-	// the last is the client id (optional)
-	r := &comments.Request{}
-	raw = strings.TrimSuffix(raw, "\n")
-	parts := strings.Split(raw, "|")
-
-	r.ID = parts[0]
-	if len(parts) == 3 {
-		r.Data = parts[1]
-		r.ClientID = parts[2]
-	} else if len(parts) == 2 {
-		r.Data = parts[1]
-	}
-	return r
-}
-
-func (client *Client) handleRequest() {
-	reader := bufio.NewReader(client.conn)
-	for {
-		message, err := reader.ReadString('\n')
-		if err != nil {
-			if err.Error() != "EOF" {
-				fmt.Printf("error: %v", err)
-			}
-			return
-		}
-		m := unmarshall(message)
-		fmt.Printf("<-- incoming request: '%s', '%s', '%s'\n", m.ID, m.Data, m.ClientID)
-		output := client.requestHandler.HandleMessage(m)
-
-		client.conn.Write([]byte(output))
-		//client.conn.Close()
-
-		fmt.Printf("--> response: '%s'\n", strings.TrimSuffix(output, "\n"))
+		server.controller.HandleNewConnection(conn)
 	}
 }

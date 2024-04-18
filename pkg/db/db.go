@@ -47,10 +47,10 @@ func (s *State) GetDiscussionById(discussionId string) *comments.Discussion {
 	return nil
 }
 
-func (s *State) AddDiscussion(discussion *comments.Discussion) {
-	s.discussions = append(s.discussions, discussion)
+func (s *State) GetDiscussions() []*comments.Discussion {
+	return s.discussions
 }
 
-func (s *State) ListDiscussions() {
-
+func (s *State) AddDiscussion(discussion *comments.Discussion) {
+	s.discussions = append(s.discussions, discussion)
 }

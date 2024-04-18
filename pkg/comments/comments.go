@@ -1,17 +1,16 @@
 package comments
 
 import (
-	"github.com/google/uuid"
 	"strings"
-	"time"
 )
 
 type Request struct {
-	ID        string
-	Data      string
-	ClientID  string
-	Reference string
-	Comment   string
+	ID           string
+	Data         string
+	ClientID     string
+	Reference    string
+	Comment      string
+	DiscussionId string
 }
 
 type Response struct {
@@ -19,84 +18,53 @@ type Response struct {
 	Data string
 }
 
-type Reply struct {
-	author    string
-	text      string
-	createdAt int64
-}
-
-type Discussion struct {
-	id        string
-	ref       string
-	replies   []Reply
-	createdAt int64
-}
-
-const (
-	ActionSignIn           = "SIGN_IN"
-	ActionSignOut          = "SIGN_OUT"
-	ActionWhoami           = "WHOAMI"
-	ActionCreateDiscussion = "CREATE_DISCUSSION"
-	ActionCreateReply      = "CREATE_REPLY"
-	ActionGetDiscussion    = "GET_DISCUSSION"
-	ActionListDiscussions  = "LIST_DISCUSSIONS"
-)
-
 // Unmarshall converts a raw string into a Request object
+// the message is divided into parts separated by pipe |
+// first 7 chars are the request id
+// the following segment is the data (aka the request type)
+// following it can either be the client_id, or different info depending on the request type
 func Unmarshall(raw string) *Request {
-	// the message is divided into parts separated by pipe |
-	// first 7 chars are the request id
-	// the following segment is the data
-	// the last is the client id (optional)
 	r := &Request{}
 	raw = strings.TrimSuffix(raw, "\n")
 	parts := strings.Split(raw, "|")
 
 	r.ID = parts[0]
-	if len(parts) == 4 {
+
+	if len(parts) > 1 {
 		r.Data = parts[1]
+	}
+
+	switch r.Data {
+	case ActionSignIn:
+		// <request_id>|SIGN_IN|<client_id>
+		r.ClientID = parts[2]
+
+	case ActionWhoami:
+		// <request_id>|WHOAMI
+
+	case ActionSignOut:
+		// <request_id>|SIGN_OUT
+
+	case ActionCreateDiscussion:
+		// <request_id>|CREATE_DISCUSSION|<reference>|<comment>
 		r.Reference = parts[2]
 		r.Comment = parts[3]
-	} else if len(parts) == 3 {
-		r.Data = parts[1]
-		r.ClientID = parts[2]
-	} else if len(parts) == 2 {
-		r.Data = parts[1]
+
+	case ActionCreateReply:
+		// <request_id>|CREATE_REPLY|<discussion_id>|<comment>
+		r.DiscussionId = parts[2]
+		r.Comment = parts[3]
+
+	case ActionGetDiscussion:
+		// <request_id>|GET_DISCUSSION|<discussion_id>
+		r.DiscussionId = parts[2]
+
+	case ActionListDiscussions:
+		// <request_id>|LIST_DISCUSSIONS|<reference_prefix>
+		r.Reference = parts[2]
+	default:
+		// no-op
 	}
+
 	return r
-}
-
-// NewDiscussion generates a unique id, and stores the timestamp of creation
-func NewDiscussion(ref, author, comment string) *Discussion {
-	now := time.Now().Unix()
-	return &Discussion{
-		id:        uuid.New().String(),
-		ref:       ref,
-		replies:   []Reply{{author: author, text: comment, createdAt: now}},
-		createdAt: now,
-	}
-}
-
-func (d *Discussion) GetId() string {
-	return d.id
-}
-
-func (d *Discussion) AddReply(author, reply string) {
-	now := time.Now().Unix()
-	d.replies = append(d.replies, Reply{author: author, text: reply, createdAt: now})
-}
-
-// GetReplies returns a string wrapped by parenthesis, each item separated by comma, each item containing author and text separated by pipe. Example: (janedoe|"Hey, folks. What do you think of my video? Does it have enough ""polish""?",johndoe|I think it's great!).
-// Additionally, each text is wrapped by double quotes and any double quote within the text is escaped with another double quote.
-func (d *Discussion) GetReplies() string {
-	var replies []string
-	for _, r := range d.replies {
-		// Escape double quotes in the text
-		escapedText := strings.ReplaceAll(r.text, "\"", "\"\"")
-		// Wrap the text with double quotes and combine with author using pipe
-		formattedReply := r.author + "|\"" + escapedText + "\""
-		replies = append(replies, formattedReply)
-	}
-	// Join all formatted replies with commas and wrap the result with parentheses
-	return "(" + strings.Join(replies, ",") + ")"
 }

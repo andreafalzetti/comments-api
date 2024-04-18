@@ -89,3 +89,12 @@ func (s *State) GetAuthenticatedConnections() []Connection {
 	}
 	return connections
 }
+
+// GetClientIds returns a list of client ids
+func (s *State) GetClientIds() []string {
+	clientIds := make([]string, 0)
+	for clientId := range s.clients {
+		clientIds = append(clientIds, clientId)
+	}
+	return clientIds
+}

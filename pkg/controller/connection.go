@@ -45,7 +45,12 @@ func (conn *Connection) Listen() {
 		fmt.Printf("<-- incoming request from: '%s': '%s'\n", incomingClientId, m.Data)
 		outMsg, asyncOps := conn.HandleMessage(m)
 		conn.db.AddConnection(conn.clientId, conn)
-		conn.Write([]byte(outMsg))
+		_, err = conn.Write([]byte(outMsg))
+		if err != nil {
+			fmt.Printf("x - failed to write response to client: %s: '%s', with error: %v", conn.GetClientId(), strings.TrimSuffix(outMsg, "\n"), err)
+			continue
+		}
+
 		fmt.Printf("--> reply to client '%s': '%s'\n", conn.GetClientId(), strings.TrimSuffix(outMsg, "\n"))
 
 		if asyncOps != nil {
@@ -61,6 +66,18 @@ func (conn *Connection) HandleMessage(req *comments.Request) (string, func()) {
 
 	if req.ID != "" {
 		res.ID = req.ID
+	}
+
+	// analyse the message to extract mentions
+	mentions := []string{}
+	if req.Comment != "" {
+		allowedMentions := conn.db.GetClientIds()
+		// check if comment contains "@{clientId}"
+		for _, clientId := range allowedMentions {
+			if strings.Contains(req.Comment, fmt.Sprintf("@%s", clientId)) {
+				mentions = append(mentions, clientId)
+			}
+		}
 	}
 
 	// auth
@@ -100,10 +117,30 @@ func (conn *Connection) HandleMessage(req *comments.Request) (string, func()) {
 		d.AddReply(conn.clientId, req.Comment)
 
 		return fmt.Sprintf("%s\n", req.ID), func() {
-			conns := conn.db.GetAuthenticatedConnections()
+			clientsToNotify := map[string]bool{}
+			for _, p := range d.GetParticipants() {
+				clientsToNotify[p] = true
+			}
+			for _, m := range mentions {
+				clientsToNotify[m] = true
+			}
+			var clients []string
+			for c := range clientsToNotify {
+				clients = append(clients, c)
+			}
+
+			conns := conn.db.GetConnectionsByIds(clients)
+
 			for _, c := range conns {
 				if c.GetClientId() == conn.GetClientId() {
 					fmt.Printf("--> skipping notification to client '%s' of discussion '%s'\n", c.GetClientId(), d.GetId())
+					if c.GetClientId() == "Charlie" {
+						_, err := c.Write([]byte(fmt.Sprintf("TEST\n")))
+						if err != nil {
+							fmt.Printf("x - error notifying participant: %v", err)
+						}
+						return
+					}
 					continue
 				} else {
 					fmt.Printf("--> notify client '%s' of discussion '%s'\n", c.GetClientId(), d.GetId())

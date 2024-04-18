@@ -26,7 +26,7 @@ func FromEnv() (*Config, error) {
 	}
 
 	port := loadEnvOrDefault("COMMENTS_API_PORT", "14000")
-	if host == "" {
+	if port == "" {
 		return nil, fmt.Errorf("port is missing")
 	}
 

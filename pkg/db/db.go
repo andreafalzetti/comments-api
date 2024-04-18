@@ -2,7 +2,13 @@ package db
 
 import (
 	"github.com/andreafalzetti/comments-api/pkg/comments"
+	"net"
 )
+
+type Connection interface {
+	net.Conn
+	GetClientId() string
+}
 
 type Record struct {
 	ClientId        string
@@ -12,12 +18,21 @@ type Record struct {
 type State struct {
 	clients     map[string]*Record
 	discussions []*comments.Discussion
+	connections map[string]Connection
 }
 
 // NewInMemoryDB creates a new in-memory key-value database used for development and testing
 func NewInMemoryDB() *State {
 	return &State{
-		clients: make(map[string]*Record),
+		clients:     make(map[string]*Record),
+		connections: make(map[string]Connection),
+	}
+}
+
+// AddConnection adds a connection to the database
+func (s *State) AddConnection(clientId string, conn Connection) {
+	if s.connections[clientId] == nil {
+		s.connections[clientId] = conn
 	}
 }
 
@@ -53,4 +68,24 @@ func (s *State) GetDiscussions() []*comments.Discussion {
 
 func (s *State) AddDiscussion(discussion *comments.Discussion) {
 	s.discussions = append(s.discussions, discussion)
+}
+
+// GetConnectionsByIds returns a list of connections by their ids
+func (s *State) GetConnectionsByIds(clientIds []string) []Connection {
+	connections := make([]Connection, 0)
+	for _, clientId := range clientIds {
+		connections = append(connections, s.connections[clientId])
+	}
+	return connections
+}
+
+// GetAuthenticatedConnections returns a list of authenticated connections
+func (s *State) GetAuthenticatedConnections() []Connection {
+	connections := make([]Connection, 0)
+	for _, r := range s.clients {
+		if r.IsAuthenticated {
+			connections = append(connections, s.connections[r.ClientId])
+		}
+	}
+	return connections
 }

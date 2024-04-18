@@ -6,7 +6,8 @@ import (
 )
 
 type Controller struct {
-	db *db.State
+	db          *db.State
+	GetClientId func() string
 }
 
 func NewController(db *db.State) *Controller {

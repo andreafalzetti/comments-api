@@ -52,3 +52,12 @@ func (d *Discussion) GetReplies() string {
 	}
 	return "(" + strings.Join(replies, ",") + ")"
 }
+
+// GetParticipants returns the list of users who wrote comments in the discussion.
+func (d *Discussion) GetParticipants() []string {
+	var participants []string
+	for _, r := range d.replies {
+		participants = append(participants, r.author)
+	}
+	return participants
+}

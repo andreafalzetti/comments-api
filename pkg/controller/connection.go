@@ -22,6 +22,11 @@ func NewConnection(conn net.Conn, db *db.State) *Connection {
 	}
 }
 
+// GetClientId returns the clientId of the authenticated client
+func (conn *Connection) GetClientId() string {
+	return conn.clientId
+}
+
 func (conn *Connection) Listen() {
 	reader := bufio.NewReader(conn)
 	for {
@@ -33,18 +38,25 @@ func (conn *Connection) Listen() {
 			return
 		}
 		m := comments.Unmarshall(message)
-		fmt.Printf("<-- incoming request: '%s', '%s', '%s'\n", m.ID, m.Data, m.ClientID)
-		output := conn.HandleMessage(m)
+		incomingClientId := conn.clientId
+		if incomingClientId == "" {
+			incomingClientId = conn.GetClientId()
+		}
+		fmt.Printf("<-- incoming request from: '%s': '%s'\n", incomingClientId, m.Data)
+		outMsg, asyncOps := conn.HandleMessage(m)
+		conn.db.AddConnection(conn.clientId, conn)
+		conn.Write([]byte(outMsg))
+		fmt.Printf("--> reply to client '%s': '%s'\n", conn.GetClientId(), strings.TrimSuffix(outMsg, "\n"))
 
-		conn.Write([]byte(output))
-		//client.conn.Close()
-
-		fmt.Printf("--> response: '%s'\n", strings.TrimSuffix(output, "\n"))
+		if asyncOps != nil {
+			fmt.Printf("--> running async ops\n")
+			asyncOps()
+		}
 	}
 
 }
 
-func (conn *Connection) HandleMessage(req *comments.Request) string {
+func (conn *Connection) HandleMessage(req *comments.Request) (string, func()) {
 	res := &comments.Response{}
 
 	if req.ID != "" {
@@ -55,39 +67,54 @@ func (conn *Connection) HandleMessage(req *comments.Request) string {
 	if req.Data == comments.ActionSignIn {
 		conn.db.AuthenticateClient(req.ClientID)
 		conn.clientId = req.ClientID
-		return fmt.Sprintf("%s\n", req.ID)
+		return fmt.Sprintf("%s\n", req.ID), nil
 	}
 
 	// whoami
 	if req.Data == comments.ActionWhoami {
-		fmt.Printf("DEBUG BEFORE IS AUTHENTICATED, CLIENT ID: %s\n", req)
-		return fmt.Sprintf("%s|%s\n", req.ID, conn.WhoAmI())
+		return fmt.Sprintf("%s|%s\n", req.ID, conn.WhoAmI()), nil
 	}
 
 	// signout
 	if req.Data == comments.ActionSignOut {
 		conn.SignOut()
-		return fmt.Sprintf("%s\n", res.ID)
+		return fmt.Sprintf("%s\n", res.ID), nil
 	}
 
 	// create discussion
 	if req.Data == comments.ActionCreateDiscussion {
-		fmt.Printf("New discussion with ref: %s, saying: %s\n", req.Reference, req.Comment)
+		//fmt.Printf("New discussion with ref: %s, saying: %s\n", req.Reference, req.Comment)
 		d := comments.NewDiscussion(req.Reference, conn.clientId, req.Comment)
 		conn.db.AddDiscussion(d)
-		return fmt.Sprintf("%s|%s\n", req.ID, d.GetId())
+		return fmt.Sprintf("%s|%s\n", req.ID, d.GetId()), nil
 	}
 
 	// create reply
 	if req.Data == comments.ActionCreateReply {
-		fmt.Printf("New reply to discussion with ref: %s, saying: %s\n", req.Reference, req.Comment)
+		//fmt.Printf("New reply to discussion with ref: %s, saying: %s\n", req.Reference, req.Comment)
 		d := conn.db.GetDiscussionById(req.DiscussionId)
 		if d == nil {
 			fmt.Printf("x - error: discussion with ref %s not found\n", req.Reference)
-			return ""
+			return "", nil
 		}
 		d.AddReply(conn.clientId, req.Comment)
-		return fmt.Sprintf("%s\n", req.ID)
+
+		return fmt.Sprintf("%s\n", req.ID), func() {
+			conns := conn.db.GetAuthenticatedConnections()
+			for _, c := range conns {
+				if c.GetClientId() == conn.GetClientId() {
+					fmt.Printf("--> skipping notification to client '%s' of discussion '%s'\n", c.GetClientId(), d.GetId())
+					continue
+				} else {
+					fmt.Printf("--> notify client '%s' of discussion '%s'\n", c.GetClientId(), d.GetId())
+					notification := fmt.Sprintf("%s|%s\n", comments.ActionDiscussionUpdated, d.GetId())
+					_, err := c.Write([]byte(notification))
+					if err != nil {
+						fmt.Printf("x - error notifying participant: %v", err)
+					}
+				}
+			}
+		}
 	}
 
 	// get discussion
@@ -96,9 +123,9 @@ func (conn *Connection) HandleMessage(req *comments.Request) string {
 		d := conn.db.GetDiscussionById(req.DiscussionId)
 		if d == nil {
 			fmt.Printf("x - error: discussion with ref %s not found\n", req.Reference)
-			return ""
+			return "", nil
 		}
-		return fmt.Sprintf("%s|%s|%s|%s\n", req.ID, d.GetId(), d.GetReference(), d.GetReplies())
+		return fmt.Sprintf("%s|%s|%s|%s\n", req.ID, d.GetId(), d.GetReference(), d.GetReplies()), nil
 	}
 
 	// list discussions
@@ -109,24 +136,10 @@ func (conn *Connection) HandleMessage(req *comments.Request) string {
 		for _, d := range ds {
 			discussions = append(discussions, d.String())
 		}
-		return fmt.Sprintf("%s|(%s)\n", req.ID, strings.Join(discussions, ","))
+		return fmt.Sprintf("%s|(%s)\n", req.ID, strings.Join(discussions, ",")), nil
 	}
 
-	// mcmbfkw|
-	// (bb8ed992-afd8-401c-96ab-97bdc794cd4b|qsiqevw.0s|(Alpha|I love this video. What did you use to make it?,Bravo|"I used something called ""Synthesia"", it's pretty cool!")
-	//  ,
-	//  9d9f6504-e407-4ee7-b202-71b58b35cc12|qsiqevw.15s|(Alpha|I'm not sure about this title scene.,Charlie|"Yes, it's a bit too long, no?",Bravo|I'm not sure - I think it introduces the topic nicely.,Charlie|What about adding some animation to the scene elements?,Alpha|Or some music? Something to make it a little more interesting?,Bravo|I think these are good ideas. I'll see what I can do.))
-
-	if req.ClientID != "" {
-		currentState := conn.db.GetClientById(req.ClientID)
-		fmt.Println("db - ", currentState)
-	}
-
-	if res.Data != "" {
-		return fmt.Sprintf("%s|%s\n", res.ID, res.Data)
-	} else {
-		return fmt.Sprintf("%s\n", res.ID)
-	}
+	return "", nil
 }
 
 // WhoAmI handles the WHOAMI requests by returning the clientId of the authenticated client
